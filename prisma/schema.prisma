@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Contact {
@@ -219,11 +220,13 @@ model VendorBillLine {
 }
 
 model JournalEntry {
-  id        String        @id @default(uuid())
-  docNumber String        @unique
-  date      DateTime      @default(now())
-  ref       String?
-  lines     JournalLine[]
+  id          String        @id @default(uuid())
+  docNumber   String        @unique
+  date        DateTime      @default(now())
+  ref         String?
+  description String?
+  lines       JournalLine[]
+  createdAt   DateTime      @default(now())
 }
 
 model JournalLine {

@@ -1,12 +1,16 @@
 import { prisma } from '@/lib/prisma';
-import Link from 'next/link';
 import { revalidatePath } from 'next/cache';
+import {
+  AppNavbar,
+  ControlPanel,
+  Chatter,
+} from '@/components/odoo';
 
 export const revalidate = 0;
 
 export default async function CRMPage() {
   // ==========================================
-  // 1. BACKEND LOGIC: SERVER ACTIONS
+  // 1. BACKEND LOGIC: SERVER ACTIONS (PRESERVED STRICTLY)
   // ==========================================
 
   // A. Tambah Lead / Prospek Baru
@@ -23,8 +27,8 @@ export default async function CRMPage() {
         title,
         contactName,
         value,
-        stage: 'New'
-      }
+        stage: 'New',
+      },
     });
 
     revalidatePath('/crm');
@@ -38,113 +42,199 @@ export default async function CRMPage() {
 
     await prisma.lead.update({
       where: { id: leadId },
-      data: { stage: nextStage }
+      data: { stage: nextStage },
     });
 
     revalidatePath('/crm');
   }
 
-
   // ==========================================
   // 2. FETCH DATA LEADS
   // ==========================================
   const leads = await prisma.lead.findMany({
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
   });
 
   const stages = [
-    { id: 'New', label: '🆕 Prospek Baru', color: 'bg-blue-50 border-blue-200 text-blue-700' },
-    { id: 'Qualified', label: '🎯 Terkualifikasi', color: 'bg-amber-50 border-amber-200 text-amber-700' },
-    { id: 'Proposition', label: '💼 Negosiasi / Proposal', color: 'bg-purple-50 border-purple-200 text-purple-700' },
-    { id: 'Won', label: '🎉 Deal (Won)', color: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
+    {
+      id: 'New',
+      wireframe: '[3] New',
+      label: 'Prospek Baru',
+      icon: '🆕',
+      color: 'bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/30',
+      badgeColor: 'bg-[#3B82F6] text-white',
+    },
+    {
+      id: 'Qualified',
+      wireframe: '[4] Qualified',
+      label: 'Terkualifikasi',
+      icon: '🎯',
+      color: 'bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/30',
+      badgeColor: 'bg-[#F59E0B] text-white',
+    },
+    {
+      id: 'Proposition',
+      wireframe: '[5] Proposition',
+      label: 'Negosiasi / Proposal',
+      icon: '💼',
+      color: 'bg-[#8B5CF6]/10 text-[#8B5CF6] border-[#8B5CF6]/30',
+      badgeColor: 'bg-[#8B5CF6] text-white',
+    },
+    {
+      id: 'Won',
+      wireframe: '[6] Won',
+      label: 'Deal Menang (Won)',
+      icon: '🎉',
+      color: 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/30',
+      badgeColor: 'bg-[#10B981] text-white',
+    },
   ];
 
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* Navbar Odoo style */}
-      <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="text-slate-500 hover:text-slate-800 text-sm font-medium">← Home</Link>
-          <span className="text-slate-300">|</span>
-          <h1 className="text-lg font-bold text-slate-800">CRM / Pipeline Peluang Penjualan</h1>
-        </div>
-        <span className="text-xs bg-slate-100 text-slate-700 px-3 py-1.5 rounded-md font-mono font-semibold">
-          Total Leads: {leads.length}
-        </span>
-      </div>
+  const totalPipelineValue = leads.reduce((sum, l) => sum + l.value, 0);
 
-      <div className="max-w-7xl mx-auto w-full p-6 space-y-6">
+  return (
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans">
+      {/* 1. App Navbar Odoo */}
+      <AppNavbar currentModule="CRM Pipeline (S-04)" />
+
+      {/* 2. Control Panel Header Odoo */}
+      <ControlPanel
+        breadcrumbs={[
+          { label: 'Home', href: '/' },
+          { label: 'CRM', href: '/crm' },
+          { label: 'Pipeline Leads' },
+        ]}
+        searchPlaceholder="Cari nama prospek atau perusahaan..."
+        pagerText={`Total Peluang: ${leads.length}`}
+        availableViews={['kanban', 'list']}
+        currentView="kanban"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-[#64748B]">Total Nilai Pipeline:</span>
+          <span className="text-xs font-mono font-black text-[#0F172A] bg-[#CFFF30]/40 px-2 py-0.5 rounded border border-[#CFFF30]">
+            Rp {totalPipelineValue.toLocaleString('id-ID')}
+          </span>
+        </div>
+      </ControlPanel>
+
+      {/* 3. Main Workspace: S-04 CRM Pipeline Kanban */}
+      <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-6 space-y-6">
         
-        {/* --- FORM TAMBAH LEAD BARU --- */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-          <h2 className="font-bold text-slate-800 text-sm mb-3">➕ Input Peluang / Prospek Baru</h2>
+        {/* Form Tambah Lead Baru ala Odoo Quick Create */}
+        <div className="bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
+          <div className="flex items-center justify-between mb-3 border-b border-[#E2E8F0] pb-2">
+            <h2 className="font-bold text-[#0F172A] text-xs uppercase tracking-wider flex items-center gap-1.5">
+              <span>➕</span>
+              <span>Input Peluang / Prospek Baru (F-04)</span>
+            </h2>
+            <span className="text-[11px] text-[#64748B]">
+              Tahap awal: <strong>New (Prospek Baru)</strong>
+            </span>
+          </div>
+
           <form action={createLead} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <input 
-              type="text" 
-              name="title" 
-              placeholder="Judul Prospek (misal: Pengadaan Meja Kantor)" 
-              required 
-              className="bg-slate-50 border border-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-purple-500"
+            <input
+              type="text"
+              name="title"
+              placeholder="Judul Peluang (misal: Pengadaan Meja Kantor)"
+              required
+              className="bg-[#F8FAFC] border border-[#E2E8F0] text-xs rounded-lg px-3 py-2 text-[#0F172A] outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all placeholder-[#64748B]"
             />
-            <input 
-              type="text" 
-              name="contactName" 
-              placeholder="Nama Klien / Perusahaan" 
-              required 
-              className="bg-slate-50 border border-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-purple-500"
+            <input
+              type="text"
+              name="contactName"
+              placeholder="Nama Klien / Perusahaan (Kontak)"
+              required
+              className="bg-[#F8FAFC] border border-[#E2E8F0] text-xs rounded-lg px-3 py-2 text-[#0F172A] outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all placeholder-[#64748B]"
             />
-            <input 
-              type="number" 
-              name="value" 
-              placeholder="Estimasi Nilai (Rp)" 
-              className="bg-slate-50 border border-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-purple-500"
+            <input
+              type="number"
+              name="value"
+              placeholder="Estimasi Nilai Opportunity (Rp)"
+              className="bg-[#F8FAFC] border border-[#E2E8F0] text-xs rounded-lg px-3 py-2 text-[#0F172A] outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all placeholder-[#64748B]"
             />
-            <button 
-              type="submit" 
-              className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs py-2 px-4 rounded-lg shadow-sm transition-all"
+            <button
+              type="submit"
+              className="bg-[#CFFF30] hover:brightness-95 text-[#0F172A] font-extrabold text-xs py-2 px-4 rounded-lg shadow-xs transition-all flex items-center justify-center gap-1.5"
             >
-              + Simpan Prospek
+              <span>+</span>
+              <span>Simpan Prospek</span>
             </button>
           </form>
         </div>
 
-        {/* --- PAPAN KANBAN (BOARD STAGES) --- */}
+        {/* 4 Kolom Kanban S-04 ala Odoo 17.0 */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
-          {stages.map(stg => {
-            const stageLeads = leads.filter(l => l.stage === stg.id);
+          {stages.map((stg) => {
+            const stageLeads = leads.filter((l) => l.stage === stg.id);
             const totalValue = stageLeads.reduce((acc, curr) => acc + curr.value, 0);
 
             return (
-              <div key={stg.id} className="bg-slate-100 rounded-xl p-3 border border-slate-200 min-h-[450px] flex flex-col justify-between">
+              <div
+                key={stg.id}
+                className="bg-[#F8FAFC] rounded-xl p-3 border border-[#E2E8F0] min-h-[500px] flex flex-col justify-between"
+              >
                 <div>
-                  {/* Stage Header */}
-                  <div className={`p-3 rounded-lg border font-bold text-xs flex justify-between items-center mb-3 ${stg.color}`}>
-                    <span>{stg.label}</span>
-                    <span className="bg-white/80 px-2 py-0.5 rounded-full text-[10px]">{stageLeads.length}</span>
-                  </div>
-                  
-                  <div className="text-[11px] text-slate-500 font-semibold mb-3 px-1">
-                    Est Total: <span className="text-slate-800 font-bold">Rp {totalValue.toLocaleString('id-ID')}</span>
+                  {/* Kanban Column Header */}
+                  <div
+                    className={`p-3 rounded-lg border font-bold text-xs flex justify-between items-center mb-2 shadow-2xs ${stg.color}`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>{stg.icon}</span>
+                      <span>{stg.label}</span>
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${stg.badgeColor}`}
+                    >
+                      {stageLeads.length}
+                    </span>
                   </div>
 
-                  {/* List Cards in Stage */}
+                  <div className="text-[11px] text-[#64748B] font-semibold mb-3 px-1 flex justify-between">
+                    <span>Subtotal Nilai:</span>
+                    <span className="font-mono font-bold text-[#0F172A]">
+                      Rp {totalValue.toLocaleString('id-ID')}
+                    </span>
+                  </div>
+
+                  {/* List Cards in Column */}
                   <div className="space-y-3">
-                    {stageLeads.map(lead => (
-                      <div key={lead.id} className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm hover:border-purple-300 transition-all">
-                        <h3 className="font-bold text-slate-800 text-xs">{lead.title}</h3>
-                        <p className="text-[11px] text-slate-500 mt-1">👤 {lead.contactName}</p>
-                        <div className="mt-2 pt-2 border-t border-slate-100 font-extrabold text-slate-800 text-xs">
-                          Rp {lead.value.toLocaleString('id-ID')}
+                    {stageLeads.map((lead) => (
+                      <div
+                        key={lead.id}
+                        className="bg-white p-4 rounded-xl border border-[#E2E8F0] shadow-xs hover:border-[#00F0FF] hover:shadow-md transition-all group"
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <h3 className="font-extrabold text-[#0F172A] text-xs group-hover:text-[#1E293B] transition-colors leading-snug">
+                            {lead.title}
+                          </h3>
                         </div>
 
-                        {/* Tombol Geser Stage */}
-                        <div className="mt-3 flex gap-1 pt-2 border-t border-slate-100">
+                        <p className="text-[11px] text-[#64748B] flex items-center gap-1 mb-2">
+                          <span>👤</span>
+                          <span className="font-medium">{lead.contactName}</span>
+                        </p>
+
+                        <div className="pt-2 border-t border-[#E2E8F0] flex items-center justify-between">
+                          <span className="text-[10px] text-[#64748B] font-semibold uppercase">
+                            Expected
+                          </span>
+                          <span className="font-mono font-black text-xs text-[#0F172A]">
+                            Rp {lead.value.toLocaleString('id-ID')}
+                          </span>
+                        </div>
+
+                        {/* Interactive Stage Transition Forms */}
+                        <div className="mt-3 pt-2 border-t border-[#E2E8F0]/70 flex items-center gap-1">
                           {stg.id === 'New' && (
                             <form action={updateLeadStage} className="w-full">
                               <input type="hidden" name="leadId" value={lead.id} />
                               <input type="hidden" name="nextStage" value="Qualified" />
-                              <button type="submit" className="w-full bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 font-bold text-[10px] py-1 rounded">
-                                Lanjut Qualified ➔
+                              <button
+                                type="submit"
+                                className="w-full bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/30 font-bold text-[10px] py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1"
+                              >
+                                <span>Kualifikasi ➔</span>
                               </button>
                             </form>
                           )}
@@ -152,8 +242,11 @@ export default async function CRMPage() {
                             <form action={updateLeadStage} className="w-full">
                               <input type="hidden" name="leadId" value={lead.id} />
                               <input type="hidden" name="nextStage" value="Proposition" />
-                              <button type="submit" className="w-full bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 font-bold text-[10px] py-1 rounded">
-                                Kirim Proposal ➔
+                              <button
+                                type="submit"
+                                className="w-full bg-[#8B5CF6]/10 hover:bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30 font-bold text-[10px] py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1"
+                              >
+                                <span>Ajukan Proposal ➔</span>
                               </button>
                             </form>
                           )}
@@ -161,19 +254,28 @@ export default async function CRMPage() {
                             <form action={updateLeadStage} className="w-full">
                               <input type="hidden" name="leadId" value={lead.id} />
                               <input type="hidden" name="nextStage" value="Won" />
-                              <button type="submit" className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-[10px] py-1 rounded">
-                                Mark as Won (Deal) 🎉
+                              <button
+                                type="submit"
+                                className="w-full bg-[#10B981] hover:brightness-95 text-white font-extrabold text-[10px] py-1.5 rounded-lg transition-all shadow-xs flex items-center justify-center gap-1"
+                              >
+                                <span>🎉 Mark as Won</span>
                               </button>
                             </form>
                           )}
                           {stg.id === 'Won' && (
-                            <span className="w-full text-center text-emerald-600 font-bold text-[10px] bg-emerald-50 py-1 rounded border border-emerald-200">
-                              ✓ Siap Jadi Quotation Sales
-                            </span>
+                            <div className="w-full text-center text-[#10B981] font-bold text-[10px] bg-[#10B981]/10 py-1.5 rounded-lg border border-[#10B981]/30">
+                              ✓ Siap Jadi Quotation (S-05)
+                            </div>
                           )}
                         </div>
                       </div>
                     ))}
+
+                    {stageLeads.length === 0 && (
+                      <div className="border border-dashed border-[#CBD5E1] rounded-lg p-6 text-center text-[#64748B] text-xs">
+                        Kosong
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -181,7 +283,24 @@ export default async function CRMPage() {
           })}
         </div>
 
-      </div>
+        {/* Section Chatter Log Notes Pipeline */}
+        <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs p-2">
+          <Chatter
+            documentId="CRM-PIPELINE"
+            documentType="Pipeline Stage Tracker"
+            initialLogs={[
+              {
+                id: 'crm1',
+                user: 'Maya Lestari (Sales Mgr)',
+                role: 'Sales Manager',
+                action: 'Update status Lead Kantor Baru ke Qualified',
+                timestamp: 'Hari ini, 10:00',
+                message: 'Prospek kebutuhan kantor 4x P001 dan 2x P003 telah diverifikasi.',
+              },
+            ]}
+          />
+        </div>
+      </main>
     </div>
   );
 }
