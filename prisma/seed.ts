@@ -1,4 +1,10 @@
 import { PrismaClient } from "@prisma/client";
+import { createHash } from "crypto";
+
+function hashPassword(plain: string): string {
+  const salt = "ruparuang-salt-2024";
+  return createHash("sha256").update(salt + plain).digest("hex");
+}
 
 const prisma = new PrismaClient();
 
@@ -163,6 +169,92 @@ async function main() {
   }
 
   console.log("Seeding data awal BERHASIL! Database siap dipakai.");
+
+  // 6. Seed AppUsers (7 akun: 1 superadmin + 6 role)
+  const appUsers = [
+    {
+      email: "superadmin@ruparuang.com",
+      username: "superadmin",
+      password: "admin123456",
+      name: "Super Admin RupaRuang",
+      role: "SUPERADMIN",
+      access: "dashboard,contacts,crm,inventory,sales,purchase,pos,invoicing,accounting",
+    },
+    {
+      email: "owner@ruparuang.com",
+      username: "owner",
+      password: "owner123",
+      name: "Hendra Wijaya",
+      role: "OWNER",
+      access: "dashboard,contacts,crm,inventory,sales,purchase,pos,invoicing,accounting",
+    },
+    {
+      email: "sales@ruparuang.com",
+      username: "maya.sales",
+      password: "sales123",
+      name: "Maya Lestari",
+      role: "SALES",
+      access: "contacts,crm,sales,inventory",
+    },
+    {
+      email: "warehouse@ruparuang.com",
+      username: "doni.warehouse",
+      password: "warehouse123",
+      name: "Doni Saputra",
+      role: "WAREHOUSE",
+      access: "inventory,purchase",
+    },
+    {
+      email: "finance@ruparuang.com",
+      username: "sinta.finance",
+      password: "finance123",
+      name: "Sinta Rahmawati",
+      role: "FINANCE",
+      access: "invoicing,accounting",
+    },
+    {
+      email: "purchasing@ruparuang.com",
+      username: "awan.purch",
+      password: "purch123",
+      name: "Awan Nugraha",
+      role: "PURCHASING",
+      access: "purchase,contacts",
+    },
+    {
+      email: "cashier@ruparuang.com",
+      username: "rina.kasir",
+      password: "cashier123",
+      name: "Rina Hartati",
+      role: "CASHIER",
+      access: "pos",
+    },
+  ];
+
+  for (const u of appUsers) {
+    await prisma.appUser.upsert({
+      where: { email: u.email },
+      update: {
+        username: u.username,
+        passwordHash: hashPassword(u.password),
+        name: u.name,
+        role: u.role,
+        access: u.access,
+        active: true,
+      },
+      create: {
+        email: u.email,
+        username: u.username,
+        passwordHash: hashPassword(u.password),
+        name: u.name,
+        role: u.role,
+        access: u.access,
+        active: true,
+      },
+    });
+    console.log(`  ✓ User seeded: ${u.email} (${u.role})`);
+  }
+
+  console.log("\n✅ Seeding SELESAI! 7 akun pengguna + data ERP siap digunakan.");
 }
 
 main()

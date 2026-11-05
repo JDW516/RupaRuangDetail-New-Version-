@@ -16,6 +16,7 @@ interface ERPModuleItem {
   icon: string;
   badge?: string;
   wireframe: string;
+  adminOnly?: boolean;
 }
 
 const erpModules: ERPModuleItem[] = [
@@ -26,6 +27,15 @@ const erpModules: ERPModuleItem[] = [
     iconBg: 'bg-[#1E293B] text-[#CFFF30]',
     icon: '⚡',
     wireframe: 'S-01',
+  },
+  {
+    name: 'Panel Super Admin',
+    desc: 'Kelola Pengguna, Hak Akses 9 Modul & Kontrol Keamanan',
+    href: '/admin/users',
+    iconBg: 'bg-purple-600 text-white',
+    icon: '⚙️',
+    wireframe: 'ADM-01',
+    adminOnly: true,
   },
   {
     name: 'Master Contacts',
@@ -114,6 +124,18 @@ export default function AppSwitcherModal({
   onClose,
 }: AppSwitcherModalProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [userRole, setUserRole] = useState<string>('');
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch('/api/auth/me')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.role) setUserRole(data.role);
+        })
+        .catch(() => {});
+    }
+  }, [isOpen]);
 
   // Handle escape key
   useEffect(() => {
@@ -126,17 +148,20 @@ export default function AppSwitcherModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Filter modul berdasarkan input
+  // Filter modul berdasarkan role dan input pencarian
   const filteredModules = useMemo(() => {
-    if (!searchTerm.trim()) return erpModules;
+    const isSuperOrOwner = userRole === 'SUPERADMIN' || userRole === 'OWNER';
+    const available = erpModules.filter((m) => !m.adminOnly || isSuperOrOwner);
+
+    if (!searchTerm.trim()) return available;
     const term = searchTerm.toLowerCase();
-    return erpModules.filter(
+    return available.filter(
       (m) =>
         m.name.toLowerCase().includes(term) ||
         m.desc.toLowerCase().includes(term) ||
         m.wireframe.toLowerCase().includes(term)
     );
-  }, [searchTerm]);
+  }, [searchTerm, userRole]);
 
   if (!isOpen) return null;
 
@@ -180,7 +205,7 @@ export default function AppSwitcherModal({
               autoFocus
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Cari modul atau no wireframe (misal: S-05, Sales, PO)..."
+              placeholder="Cari modul atau no wireframe (misal: S-05, Sales, PO, Admin)..."
               className="w-full bg-[#F8FAFC] border border-[#E2E8F0] text-sm text-[#0F172A] rounded-xl px-4 py-2.5 pl-10 focus:outline-none focus:border-[#00F0FF] focus:ring-2 focus:ring-[#00F0FF]/30 transition-all placeholder-[#64748B]"
             />
             <span className="absolute left-3.5 top-2.5 text-[#64748B] text-sm">

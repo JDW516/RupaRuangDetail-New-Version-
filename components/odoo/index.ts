@@ -1,6 +1,8 @@
 export { default as AppNavbar } from './AppNavbar';
 export * from './AppNavbar';
 
+export { default as ThemeToggle } from './ThemeToggle';
+
 export { default as AppSwitcherModal } from './AppSwitcherModal';
 export * from './AppSwitcherModal';
 

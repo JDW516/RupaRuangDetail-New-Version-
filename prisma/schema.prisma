@@ -289,3 +289,17 @@ model Lead {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+
+// AppUser: system users with RBAC
+model AppUser {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  username     String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("STAFF") // SUPERADMIN, OWNER, SALES, WAREHOUSE, FINANCE, PURCHASING, CASHIER, STAFF
+  access       String   @default("") // comma-separated module IDs, e.g. "dashboard,crm,sales"
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+}

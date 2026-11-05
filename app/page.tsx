@@ -1,14 +1,34 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { AppNavbar, ControlPanel } from '@/components/odoo';
+
+interface UserSession {
+  userId: string;
+  email: string;
+  name: string;
+  role: string;
+  access: string[];
+}
 
 export default function HomePage() {
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState('ALL');
+  const [session, setSession] = useState<UserSession | null>(null);
 
-  const apps = [
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) setSession(data);
+      })
+      .catch(() => {});
+  }, []);
+
+  const isSuperOrOwner = session?.role === 'SUPERADMIN' || session?.role === 'OWNER';
+
+  const baseApps = [
     {
       id: 'contacts',
       wireframe: 'S-02',
@@ -110,6 +130,21 @@ export default function HomePage() {
     },
   ];
 
+  // Injeksi Panel Super Admin untuk SUPERADMIN atau OWNER
+  const adminApp = {
+    id: 'admin',
+    wireframe: 'ADM-01',
+    title: 'Panel Super Admin',
+    desc: 'Kelola Pengguna, Hak Akses 9 Modul, Status Aktif & Reset Password',
+    href: '/admin/users',
+    icon: '⚙️',
+    color: 'bg-purple-600 text-white',
+    roles: ['Superadmin', 'Owner'],
+    badge: 'Administrasi',
+  };
+
+  const apps = isSuperOrOwner ? [adminApp, ...baseApps] : baseApps;
+
   const filteredApps = apps.filter((app) => {
     const matchesSearch =
       search === '' ||
@@ -118,7 +153,8 @@ export default function HomePage() {
       app.wireframe.toLowerCase().includes(search.toLowerCase());
 
     const matchesRole =
-      filterRole === 'ALL' || app.roles.includes(filterRole);
+      filterRole === 'ALL' ||
+      app.roles.map((r) => r.toLowerCase()).includes(filterRole.toLowerCase());
 
     return matchesSearch && matchesRole;
   });
@@ -133,7 +169,7 @@ export default function HomePage() {
         breadcrumbs={[{ label: 'Home' }, { label: 'App Switcher (S-01)' }]}
         searchValue={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Cari modul atau no wireframe (misal: S-04, Sales)..."
+        searchPlaceholder="Cari modul atau no wireframe (misal: S-04, Sales, Admin)..."
         onFilterClick={() => setFilterRole(filterRole === 'ALL' ? 'Sales' : 'ALL')}
         onGroupByClick={() => setFilterRole(filterRole === 'ALL' ? 'Finance' : 'ALL')}
         activeFilter={filterRole !== 'ALL' ? filterRole : undefined}
@@ -141,7 +177,7 @@ export default function HomePage() {
         {/* Role Quick Filter Pills */}
         <div className="flex items-center gap-1 overflow-x-auto text-xs py-0.5">
           <span className="text-[11px] font-bold text-[#64748B] mr-1">Akses Role:</span>
-          {['ALL', 'Owner', 'Sales', 'Warehouse', 'Finance', 'Purchasing', 'Cashier'].map((role) => (
+          {['ALL', 'Owner', 'Sales', 'Warehouse', 'Finance', 'Purchasing', 'Cashier', ...(isSuperOrOwner ? ['Superadmin'] : [])].map((role) => (
             <button
               key={role}
               type="button"
@@ -178,10 +214,15 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
-            <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-4 py-2 text-right">
-              <span className="block text-[10px] text-[#64748B] font-semibold uppercase">Database Engine</span>
-              <span className="text-xs font-mono font-bold text-[#1E293B]">PostgreSQL (Supabase)</span>
-            </div>
+            {isSuperOrOwner && (
+              <Link
+                href="/admin/users"
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold px-3.5 py-2.5 rounded-xl text-xs transition-all shadow-xs flex items-center gap-1.5"
+              >
+                <span>⚙️</span>
+                <span>Panel Super Admin</span>
+              </Link>
+            )}
             <Link
               href="/pos"
               className="bg-[#CFFF30] hover:brightness-95 text-[#0F172A] font-extrabold px-4 py-2.5 rounded-xl text-xs transition-all shadow-xs flex items-center gap-1.5"
