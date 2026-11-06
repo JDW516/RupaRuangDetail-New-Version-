@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { showToast } from '@/components/erp/Toast';
 import { AppNavbar, ControlPanel } from '@/components/odoo';
 
 interface UserSession {
@@ -17,14 +18,30 @@ export default function HomePage() {
   const [filterRole, setFilterRole] = useState('ALL');
   const [session, setSession] = useState<UserSession | null>(null);
 
+  const [loaded, setLoaded] = useState(false);
+
   useEffect(() => {
     fetch('/api/auth/me')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data) setSession(data);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoaded(true));
   }, []);
+
+  // Toast merah "Akses Ditolak" saat user di-redirect dari halaman terlarang
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const denied = params.get('denied');
+    if (denied) {
+      showToast('error', `Akses Ditolak: Anda tidak memiliki izin membuka modul "${denied}".`);
+      window.history.replaceState(null, '', '/');
+    }
+  }, []);
+
+  const canSee = (id: string) =>
+    !!session && (session.role === 'SUPERADMIN' || session.role === 'OWNER' || session.access.includes(id));
 
   const isSuperOrOwner = session?.role === 'SUPERADMIN' || session?.role === 'OWNER';
 
@@ -55,7 +72,7 @@ export default function HomePage() {
       id: 'sales',
       wireframe: 'S-05 & S-06',
       title: 'Sales & Quotations',
-      desc: 'Quotation Q00031, Konfirmasi SO, Reservasi Stok & Cek Limit Kredit',
+      desc: 'Quotation, Konfirmasi SO, Reservasi Stok & Cek Limit Kredit',
       href: '/sales',
       icon: '💼',
       color: 'bg-[#1E293B] text-[#CFFF30]',
@@ -77,7 +94,7 @@ export default function HomePage() {
       id: 'purchase',
       wireframe: 'S-09 & S-10',
       title: 'Purchase & Receipts',
-      desc: 'RFQ PO00018 ke V01, Pengadaan Barang & Penerimaan Gudang WH',
+      desc: 'RFQ/PO ke Vendor, Pengadaan Barang & Penerimaan Gudang WH',
       href: '/purchase',
       icon: '🛒',
       color: 'bg-[#10B981] text-white',
@@ -121,7 +138,7 @@ export default function HomePage() {
       id: 'dashboard',
       wireframe: 'S-17',
       title: 'Management Dashboard',
-      desc: 'Executive KPI Ringkasan Omzet, Nilai Stok Rp29.009.000 & Filter Tanggal',
+      desc: 'Executive KPI Ringkasan Omzet, Nilai Persediaan & Filter Tanggal',
       href: '/dashboard',
       icon: '📊',
       color: 'bg-[#CFFF30] text-[#0F172A]',
@@ -143,7 +160,9 @@ export default function HomePage() {
     badge: 'Administrasi',
   };
 
-  const apps = isSuperOrOwner ? [adminApp, ...baseApps] : baseApps;
+  // RBAC: hanya tampilkan modul yang boleh diakses user (Owner/Superadmin: semua)
+  const visibleBase = baseApps.filter((app) => canSee(app.id));
+  const apps = isSuperOrOwner ? [adminApp, ...visibleBase] : visibleBase;
 
   const filteredApps = apps.filter((app) => {
     const matchesSearch =
@@ -175,6 +194,7 @@ export default function HomePage() {
         activeFilter={filterRole !== 'ALL' ? filterRole : undefined}
       >
         {/* Role Quick Filter Pills */}
+        {isSuperOrOwner && (
         <div className="flex items-center gap-1 overflow-x-auto text-xs py-0.5">
           <span className="text-[11px] font-bold text-[#64748B] mr-1">Akses Role:</span>
           {['ALL', 'Owner', 'Sales', 'Warehouse', 'Finance', 'Purchasing', 'Cashier', ...(isSuperOrOwner ? ['Superadmin'] : [])].map((role) => (
@@ -192,6 +212,7 @@ export default function HomePage() {
             </button>
           ))}
         </div>
+        )}
       </ControlPanel>
 
       {/* 3. Main Workspace Grid */}
@@ -223,13 +244,15 @@ export default function HomePage() {
                 <span>Panel Super Admin</span>
               </Link>
             )}
-            <Link
-              href="/pos"
-              className="bg-[#CFFF30] hover:brightness-95 text-[#0F172A] font-extrabold px-4 py-2.5 rounded-xl text-xs transition-all shadow-xs flex items-center gap-1.5"
-            >
-              <span>🏪</span>
-              <span>Buka POS Gerai</span>
-            </Link>
+            {canSee('pos') && (
+              <Link
+                href="/pos"
+                className="bg-[#CFFF30] hover:brightness-95 text-[#0F172A] font-extrabold px-4 py-2.5 rounded-xl text-xs transition-all shadow-xs flex items-center gap-1.5"
+              >
+                <span>🏪</span>
+                <span>Buka POS Gerai</span>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -285,7 +308,11 @@ export default function HomePage() {
           ))}
         </div>
 
-        {filteredApps.length === 0 && (
+        {!loaded && (
+          <div className="text-center text-xs text-[#64748B] py-10">Memuat modul sesuai hak akses...</div>
+        )}
+
+        {loaded && filteredApps.length === 0 && (
           <div className="bg-[#FFFFFF] border border-[#E2E8F0] rounded-xl p-12 text-center space-y-2">
             <span className="text-3xl">🔍</span>
             <h3 className="font-bold text-[#0F172A] text-sm">Tidak Ada Modul Ditemukan</h3>

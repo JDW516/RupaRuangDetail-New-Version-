@@ -63,6 +63,7 @@ export default function AppNavbar({
   const activeName = session?.name || initialUserName || 'Memuat...';
   const activeRole = session?.role || initialUserRole || 'STAFF';
   const isAdminOrOwner = activeRole === 'SUPERADMIN' || activeRole === 'OWNER';
+  const canPos = isAdminOrOwner || !!session?.access?.includes('pos');
 
   // Compute initials (e.g. Hendra Wijaya -> HW)
   const initials = activeName
@@ -149,6 +150,7 @@ export default function AppNavbar({
           </div>
 
           {/* Quick POS Button */}
+          {canPos && (
           <Link
             href="/pos"
             className="hidden lg:flex items-center gap-1 px-2.5 py-1 rounded bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/30 hover:bg-[#00F0FF]/25 font-bold transition-all"
@@ -156,6 +158,7 @@ export default function AppNavbar({
             <span>🏪</span>
             <span>Kasir POS</span>
           </Link>
+          )}
 
           {/* Quick Link Panel Super Admin (Khusus SUPERADMIN & OWNER) */}
           {isAdminOrOwner && (
@@ -250,6 +253,7 @@ export default function AppNavbar({
                     <span>App Switcher (S-01)</span>
                   </Link>
 
+                  {canPos && (
                   <Link
                     href="/pos"
                     onClick={() => setIsProfileOpen(false)}
@@ -258,6 +262,7 @@ export default function AppNavbar({
                     <span className="text-sm">🏪</span>
                     <span>Kasir POS (Depok)</span>
                   </Link>
+                  )}
                 </div>
 
                 {/* Logout Divider & Button */}

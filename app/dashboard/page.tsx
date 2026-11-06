@@ -260,11 +260,11 @@ export default async function DashboardPage() {
                   Metode Penilaian Persediaan Sesuai Handout:
                 </span>
                 <span className="text-[#64748B]">
-                  Standard Cost Price tetap per SKU. Total valuasi B0 terkonfirmasi: <strong>Rp 29.009.000</strong>.
+                  Standard Cost Price tetap per SKU. Total valuasi saat ini (real-time dari database): <strong>Rp {totalStockValuation.toLocaleString('id-ID')}</strong>.
                 </span>
               </div>
               <span className="font-mono font-black text-sm text-[#0F172A] bg-white px-3 py-1 rounded-lg border border-[#E2E8F0]">
-                437 Unit B0
+                {totalCompanyQty.toLocaleString('id-ID')} Unit
               </span>
             </div>
           </div>
@@ -343,7 +343,7 @@ export default async function DashboardPage() {
                 role: 'Executive Owner',
                 action: 'Tinjauan KPI Berkala & Kepatuhan Aturan Bisnis',
                 timestamp: 'Hari ini, 11:00',
-                message: 'Nilai persediaan awal B0 Rp29.009.000 cocok. Seluruh modul siap dievaluasi sesuai skenario rubrik.',
+                message: `Nilai persediaan saat ini Rp${totalStockValuation.toLocaleString('id-ID')} dan omzet Rp${grandTotalOmzet.toLocaleString('id-ID')} dihitung langsung dari database.`,
               },
             ]}
           />

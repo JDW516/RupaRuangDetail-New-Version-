@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { cookies } from 'next/headers';
 
 const SECRET = process.env.AUTH_SECRET ?? 'ruparuang-erp-secret-key-2024-jwt';
@@ -13,10 +13,10 @@ export interface SessionPayload {
   access: string[]; // array of module IDs
 }
 
-/** Sign a payload into a simple token: base64(payload)|signature */
+/** Sign a payload into a token: base64url(payload).HMAC-SHA256(hex) */
 function sign(payload: SessionPayload): string {
   const data = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const sig = createHash('sha256').update(SECRET + data).digest('hex');
+  const sig = createHmac('sha256', SECRET).update(data).digest('hex');
   return `${data}.${sig}`;
 }
 
@@ -25,8 +25,10 @@ export function unsign(token: string): SessionPayload | null {
   try {
     const [data, sig] = token.split('.');
     if (!data || !sig) return null;
-    const expected = createHash('sha256').update(SECRET + data).digest('hex');
-    if (expected !== sig) return null;
+    const expected = createHmac('sha256', SECRET).update(data).digest('hex');
+    const a = Buffer.from(expected);
+    const b = Buffer.from(sig);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
     return JSON.parse(Buffer.from(data, 'base64url').toString('utf8')) as SessionPayload;
   } catch {
     return null;
@@ -59,4 +61,3 @@ export async function destroySession(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);
 }
-

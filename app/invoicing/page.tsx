@@ -1,6 +1,12 @@
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
-import { revalidatePath } from 'next/cache';
+import ActionButton from '@/components/erp/ActionButton';
+import {
+  createInvoiceAction,
+  createBillAction,
+  registerInvoicePaymentAction,
+  registerBillPaymentAction,
+} from '@/app/actions/erp';
 import {
   AppNavbar,
   ControlPanel,
@@ -9,109 +15,13 @@ import {
 export const revalidate = 0;
 
 export default async function InvoicingPage() {
-  // ==========================================
-  // 1. BACKEND LOGIC: ACCOUNTING ENGINE (PRESERVED STRICTLY)
-  // ==========================================
-  async function createInvoice(formData: FormData) {
-    'use server';
-    const soId = formData.get('soId') as string;
-
-    const so = await prisma.salesOrder.findUnique({
-      where: { id: soId },
-      include: { lines: true },
-    });
-    if (!so) return;
-
-    const invNumber = so.docNumber.replace('SO', 'INV-');
-    const exist = await prisma.invoice.findFirst({ where: { docNumber: invNumber } });
-    if (exist) return;
-
-    // A. Terbitkan Faktur
-    await prisma.invoice.create({
-      data: {
-        docNumber: invNumber,
-        customerId: so.customerId,
-        status: 'Posted',
-        subtotal: so.subtotal,
-        taxAmount: so.taxAmount,
-        totalAmount: so.totalAmount,
-      },
-    });
-
-    // B. AUTO-JOURNAL: Pengakuan Piutang & Pendapatan (Double-Entry)
-    // Debit: Trade Receivables (1100)
-    // Kredit: Sales Revenue (4000) & PPN Keluaran (2100)
-    await prisma.journalEntry.create({
-      data: {
-        docNumber: invNumber.replace('INV', 'JRN'),
-        description: `Pengakuan Piutang Faktur ${invNumber}`,
-        lines: {
-          create: [
-            { accountCode: '1100', debit: so.totalAmount, credit: 0 },
-            { accountCode: '4000', debit: 0, credit: so.subtotal },
-            { accountCode: '2100', debit: 0, credit: so.taxAmount },
-          ],
-        },
-      },
-    });
-
-    revalidatePath('/invoicing');
-    revalidatePath('/accounting');
-    revalidatePath('/dashboard');
-  }
-
-  async function createBill(formData: FormData) {
-    'use server';
-    const poId = formData.get('poId') as string;
-
-    const po = await prisma.purchaseOrder.findUnique({
-      where: { id: poId },
-      include: { lines: true },
-    });
-    if (!po) return;
-
-    const billNumber = po.docNumber.replace('PO', 'BILL-');
-    const exist = await prisma.vendorBill.findFirst({ where: { docNumber: billNumber } });
-    if (exist) return;
-
-    // A. Terbitkan Tagihan Vendor
-    await prisma.vendorBill.create({
-      data: {
-        docNumber: billNumber,
-        vendorId: po.vendorId,
-        status: 'Posted',
-        subtotal: po.subtotal,
-        taxAmount: po.taxAmount,
-        totalAmount: po.totalAmount,
-      },
-    });
-
-    // B. AUTO-JOURNAL: Pengakuan Hutang & Persediaan (Double-Entry)
-    // Debit: Inventory Valuation (1200) & PPN Masukan (1150)
-    // Kredit: Trade Payables (2000)
-    await prisma.journalEntry.create({
-      data: {
-        docNumber: billNumber.replace('BILL', 'JRN'),
-        description: `Pengakuan Hutang Pembelian ${billNumber}`,
-        lines: {
-          create: [
-            { accountCode: '1200', debit: po.subtotal, credit: 0 },
-            { accountCode: '1150', debit: po.taxAmount, credit: 0 },
-            { accountCode: '2000', debit: 0, credit: po.totalAmount },
-          ],
-        },
-      },
-    });
-
-    revalidatePath('/invoicing');
-    revalidatePath('/accounting');
-    revalidatePath('/dashboard');
-  }
+  // Logika bisnis (faktur, tagihan, pembayaran + jurnal otomatis) ada di lib/erp.ts
+  // dan dipanggil lewat server actions di app/actions/erp.ts
 
   // ==========================================
   // 2. FETCH DATA KEUANGAN & BUKU BESAR
   // ==========================================
-  const salesOrders = await prisma.salesOrder.findMany({ include: { customer: true } });
+  const salesOrders = await prisma.salesOrder.findMany({ where: { status: 'Confirmed' }, include: { customer: true } });
   const purchaseOrders = await prisma.purchaseOrder.findMany({ include: { vendor: true } });
   const invoices = await prisma.invoice.findMany({
     include: { customer: true },
@@ -234,8 +144,10 @@ export default async function InvoicingPage() {
                 ) : (
                   <div className="space-y-2.5">
                     {salesOrders.map((so) => {
-                      const isBilled = invoices.some((inv) =>
-                        inv.docNumber.includes(so.docNumber)
+                      const isBilled = invoices.some(
+                        (inv) =>
+                          inv.salesOrderId === so.id ||
+                          inv.docNumber === 'INV-' + so.docNumber.replace(/\D/g, '')
                       );
 
                       return (
@@ -264,16 +176,7 @@ export default async function InvoicingPage() {
                               </span>
                             </div>
                           ) : (
-                            <form action={createInvoice}>
-                              <input type="hidden" name="soId" value={so.id} />
-                              <button
-                                type="submit"
-                                className="bg-[#CFFF30] hover:brightness-95 text-[#0F172A] font-extrabold text-xs px-3.5 py-1.5 rounded-md shadow-xs transition-all flex items-center gap-1"
-                              >
-                                <span>📄</span>
-                                <span>Terbitkan Faktur</span>
-                              </button>
-                            </form>
+                            <ActionButton action={createInvoiceAction.bind(null, so.id)} label="📄 Terbitkan Faktur" />
                           )}
                         </div>
                       );
@@ -304,9 +207,14 @@ export default async function InvoicingPage() {
                       <span className="font-mono font-bold text-[#0F172A] block">
                         Rp {inv.totalAmount.toLocaleString('id-ID')}
                       </span>
-                      <span className="text-[10px] font-bold text-[#10B981] bg-[#10B981]/15 px-2 py-0.5 rounded">
-                        Posted & Auto-Journaled
-                      </span>
+                      {inv.status === 'Paid' ? (
+                        <span className="text-[10px] font-bold text-white bg-[#10B981] px-2 py-0.5 rounded">PAID</span>
+                      ) : (
+                        <div className="flex items-center justify-end gap-1.5 mt-1">
+                          <span className="text-[10px] font-bold text-[#3B82F6] bg-[#3B82F6]/15 px-2 py-0.5 rounded">POSTED</span>
+                          <ActionButton action={registerInvoicePaymentAction.bind(null, inv.id)} label="💰 Register Payment" className="bg-[#CFFF30] text-[#0F172A] font-extrabold text-[10px] px-2.5 py-1 rounded-md disabled:opacity-50" />
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -347,8 +255,10 @@ export default async function InvoicingPage() {
                     {purchaseOrders
                       .filter((po) => po.status === 'Received')
                       .map((po) => {
-                        const isBilled = vendorBills.some((bill) =>
-                          bill.docNumber.includes(po.docNumber)
+                        const isBilled = vendorBills.some(
+                          (bill) =>
+                            bill.purchaseOrderId === po.id ||
+                            bill.docNumber === 'BILL-' + po.docNumber.replace(/\D/g, '')
                         );
 
                         return (
@@ -377,16 +287,7 @@ export default async function InvoicingPage() {
                                 </span>
                               </div>
                             ) : (
-                              <form action={createBill}>
-                                <input type="hidden" name="poId" value={po.id} />
-                                <button
-                                  type="submit"
-                                  className="bg-[#1E293B] hover:bg-slate-800 text-[#CFFF30] font-extrabold text-xs px-3.5 py-1.5 rounded-md shadow-xs transition-all flex items-center gap-1"
-                                >
-                                  <span>📝</span>
-                                  <span>Terbitkan Tagihan (Bill)</span>
-                                </button>
-                              </form>
+                              <ActionButton action={createBillAction.bind(null, po.id)} label="📝 Terbitkan Tagihan (Bill)" />
                             )}
                           </div>
                         );
@@ -417,9 +318,14 @@ export default async function InvoicingPage() {
                       <span className="font-mono font-bold text-[#0F172A] block">
                         Rp {b.totalAmount.toLocaleString('id-ID')}
                       </span>
-                      <span className="text-[10px] font-bold text-[#10B981] bg-[#10B981]/15 px-2 py-0.5 rounded">
-                        Posted & Auto-Journaled
-                      </span>
+                      {b.status === 'Paid' ? (
+                        <span className="text-[10px] font-bold text-white bg-[#10B981] px-2 py-0.5 rounded">PAID</span>
+                      ) : (
+                        <div className="flex items-center justify-end gap-1.5 mt-1">
+                          <span className="text-[10px] font-bold text-[#3B82F6] bg-[#3B82F6]/15 px-2 py-0.5 rounded">POSTED</span>
+                          <ActionButton action={registerBillPaymentAction.bind(null, b.id)} label="💰 Register Payment" className="bg-[#CFFF30] text-[#0F172A] font-extrabold text-[10px] px-2.5 py-1 rounded-md disabled:opacity-50" />
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

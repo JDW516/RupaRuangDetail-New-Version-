@@ -168,6 +168,22 @@ async function main() {
     }
   }
 
+  // Receipt untuk PO00018 yang sudah Confirmed (alur Procure-to-Pay)
+  const po18 = await prisma.purchaseOrder.findUnique({ where: { docNumber: "PO00018" }, include: { lines: true } });
+  if (po18 && po18.status === "Confirmed") {
+    const rc = await prisma.receipt.findUnique({ where: { docNumber: "RC00018" } });
+    if (!rc) {
+      await prisma.receipt.create({
+        data: {
+          docNumber: "RC00018",
+          purchaseOrderId: po18.id,
+          status: "Ready",
+          lines: { create: po18.lines.map((l) => ({ sku: l.sku, qtyDone: l.qtyOrdered })) },
+        },
+      });
+    }
+  }
+
   console.log("Seeding data awal BERHASIL! Database siap dipakai.");
 
   // 6. Seed AppUsers (7 akun: 1 superadmin + 6 role)
@@ -210,7 +226,7 @@ async function main() {
       password: "finance123",
       name: "Sinta Rahmawati",
       role: "FINANCE",
-      access: "invoicing,accounting",
+      access: "contacts,invoicing,accounting",
     },
     {
       email: "purchasing@ruparuang.com",

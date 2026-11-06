@@ -9,6 +9,7 @@ export interface AppSwitcherModalProps {
 }
 
 interface ERPModuleItem {
+  id?: string; // id modul untuk RBAC; kosong = selalu tampil (Home)
   name: string;
   desc: string;
   href: string;
@@ -40,6 +41,7 @@ const erpModules: ERPModuleItem[] = [
   {
     name: 'Master Contacts',
     desc: 'Database Pelanggan C01–C06 & Vendor V01–V04',
+    id: 'contacts',
     href: '/contacts',
     iconBg: 'bg-[#3B82F6] text-white',
     icon: '👥',
@@ -48,6 +50,7 @@ const erpModules: ERPModuleItem[] = [
   {
     name: 'Product & SKU',
     desc: 'Master 16 SKU Produk, UoM & Cost/Price',
+    id: 'inventory',
     href: '/inventory',
     iconBg: 'bg-[#00F0FF] text-[#0F172A]',
     icon: '🏷️',
@@ -56,6 +59,7 @@ const erpModules: ERPModuleItem[] = [
   {
     name: 'CRM & Pipeline',
     desc: 'Kanban Prospek (New, Qualified, Prop, Won)',
+    id: 'crm',
     href: '/crm',
     iconBg: 'bg-[#8B5CF6] text-white',
     icon: '🎯',
@@ -64,6 +68,7 @@ const erpModules: ERPModuleItem[] = [
   {
     name: 'Sales Quotation & SO',
     desc: 'Quotation Form, Sales Order & Delivery',
+    id: 'sales',
     href: '/sales',
     iconBg: 'bg-[#1E293B] text-[#CFFF30]',
     icon: '💼',
@@ -72,6 +77,7 @@ const erpModules: ERPModuleItem[] = [
   {
     name: 'Inventory & Stock Overview',
     desc: 'Stok WH & SHOP (On-hand, Reserved, Available)',
+    id: 'inventory',
     href: '/inventory',
     iconBg: 'bg-[#F59E0B] text-white',
     icon: '📦',
@@ -80,6 +86,7 @@ const erpModules: ERPModuleItem[] = [
   {
     name: 'Purchase & Receipts',
     desc: 'RFQ PO00018, Vendor V01–V04 & Penerimaan WH',
+    id: 'purchase',
     href: '/purchase',
     iconBg: 'bg-[#10B981] text-white',
     icon: '🛒',
@@ -88,6 +95,7 @@ const erpModules: ERPModuleItem[] = [
   {
     name: 'Invoicing & Bills',
     desc: 'Customer Invoices, Vendor Bills, & Payment',
+    id: 'invoicing',
     href: '/invoicing',
     iconBg: 'bg-[#00F0FF] text-[#0F172A]',
     icon: '📑',
@@ -96,6 +104,7 @@ const erpModules: ERPModuleItem[] = [
   {
     name: 'Accounting / Jurnal',
     desc: 'General Ledger, COA & Double-Entry Jurnal',
+    id: 'accounting',
     href: '/accounting',
     iconBg: 'bg-[#1E293B] text-[#00F0FF]',
     icon: '⚖️',
@@ -104,6 +113,7 @@ const erpModules: ERPModuleItem[] = [
   {
     name: 'Point of Sale (POS)',
     desc: 'Mesin Kasir Gerai Depok, Struk & Tutup Sesi',
+    id: 'pos',
     href: '/pos',
     iconBg: 'bg-[#EF4444] text-white',
     icon: '🏪',
@@ -112,6 +122,7 @@ const erpModules: ERPModuleItem[] = [
   {
     name: 'Management Dashboard',
     desc: 'KPI Omzet, Nilai Stok Persediaan, & Trend',
+    id: 'dashboard',
     href: '/dashboard',
     iconBg: 'bg-[#CFFF30] text-[#0F172A]',
     icon: '📊',
@@ -125,6 +136,7 @@ export default function AppSwitcherModal({
 }: AppSwitcherModalProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [userRole, setUserRole] = useState<string>('');
+  const [userAccess, setUserAccess] = useState<string[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -132,6 +144,7 @@ export default function AppSwitcherModal({
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (data?.role) setUserRole(data.role);
+          if (Array.isArray(data?.access)) setUserAccess(data.access);
         })
         .catch(() => {});
     }
@@ -151,7 +164,9 @@ export default function AppSwitcherModal({
   // Filter modul berdasarkan role dan input pencarian
   const filteredModules = useMemo(() => {
     const isSuperOrOwner = userRole === 'SUPERADMIN' || userRole === 'OWNER';
-    const available = erpModules.filter((m) => !m.adminOnly || isSuperOrOwner);
+    const available = erpModules.filter(
+      (m) => (!m.adminOnly || isSuperOrOwner) && (!m.id || isSuperOrOwner || userAccess.includes(m.id))
+    );
 
     if (!searchTerm.trim()) return available;
     const term = searchTerm.toLowerCase();
@@ -161,7 +176,7 @@ export default function AppSwitcherModal({
         m.desc.toLowerCase().includes(term) ||
         m.wireframe.toLowerCase().includes(term)
     );
-  }, [searchTerm, userRole]);
+  }, [searchTerm, userRole, userAccess]);
 
   if (!isOpen) return null;
 

@@ -49,6 +49,16 @@ interface User {
   createdAt: string;
 }
 
+/** Kebijakan password: min. 8 karakter, huruf besar, huruf kecil, angka, simbol */
+function checkPassword(pw: string): string | null {
+  if (!pw || pw.length < 8) return 'Password minimal 8 karakter.';
+  if (!/[A-Z]/.test(pw)) return 'Password harus mengandung minimal 1 huruf besar (A-Z).';
+  if (!/[a-z]/.test(pw)) return 'Password harus mengandung minimal 1 huruf kecil (a-z).';
+  if (!/[0-9]/.test(pw)) return 'Password harus mengandung minimal 1 angka (0-9).';
+  if (!/[^A-Za-z0-9]/.test(pw)) return 'Password harus mengandung minimal 1 simbol (contoh: ! @ # $ %).';
+  return null;
+}
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,8 +104,9 @@ export default function AdminUsersPage() {
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
     setFormError('');
-    if (form.password.length < 8) {
-      setFormError('Password minimal 8 karakter.');
+    const pwErr = checkPassword(form.password);
+    if (pwErr) {
+      setFormError(pwErr);
       return;
     }
     setFormLoading(true);
@@ -145,8 +156,9 @@ export default function AdminUsersPage() {
   async function handleResetPassword(e: FormEvent) {
     e.preventDefault();
     setResetError('');
-    if (resetPw.length < 8) {
-      setResetError('Password baru minimal 8 karakter.');
+    const resetErr = checkPassword(resetPw);
+    if (resetErr) {
+      setResetError(resetErr);
       return;
     }
     setResetLoading(true);
@@ -225,7 +237,7 @@ export default function AdminUsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-[#64748B] mb-1.5">Password (min. 8 karakter)</label>
+                <label className="block text-xs font-semibold text-[#64748B] mb-1.5">Password (min. 8, huruf besar, angka & simbol)</label>
                 <input
                   type="password"
                   value={form.password}

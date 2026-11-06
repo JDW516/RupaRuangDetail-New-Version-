@@ -40,6 +40,7 @@ model Product {
   invoiceLines    InvoiceLine[]
   billLines       VendorBillLine[]
   posLines        POSOrderLine[]
+  receiptLines    ReceiptLine[]
 }
 
 model Warehouse {
@@ -132,6 +133,7 @@ model PurchaseOrder {
   vendor      Contact             @relation(fields: [vendorId], references: [id])
   lines       PurchaseOrderLine[]
   vendorBills VendorBill[]
+  receipts    Receipt[]
   createdAt   DateTime            @default(now())
 }
 
@@ -165,6 +167,25 @@ model DeliveryOrderLine {
   qtyDone         Int
   deliveryOrder   DeliveryOrder @relation(fields: [deliveryOrderId], references: [id])
   product         Product       @relation(fields: [sku], references: [sku])
+}
+
+model Receipt {
+  id              String         @id @default(uuid())
+  docNumber       String         @unique
+  purchaseOrderId String
+  status          String         @default("Ready")
+  purchaseOrder   PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id])
+  lines           ReceiptLine[]
+  createdAt       DateTime       @default(now())
+}
+
+model ReceiptLine {
+  id        String   @id @default(uuid())
+  receiptId String
+  sku       String
+  qtyDone   Int
+  receipt   Receipt  @relation(fields: [receiptId], references: [id])
+  product   Product  @relation(fields: [sku], references: [sku])
 }
 
 model Invoice {

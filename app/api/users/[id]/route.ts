@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { hashPassword } from '@/lib/password';
+import { hashPassword, validatePasswordPolicy } from '@/lib/password';
 import { getSession } from '@/lib/session';
 
 function requireAdminOrOwner(session: Awaited<ReturnType<typeof getSession>>) {
@@ -28,12 +28,13 @@ export async function PATCH(
   // Reset password
   if (body.action === 'reset_password') {
     const { newPassword } = body as { newPassword?: string };
-    if (!newPassword || newPassword.length < 8) {
-      return NextResponse.json({ error: 'Password baru minimal 8 karakter.' }, { status: 400 });
+    const pwError = validatePasswordPolicy(newPassword ?? '');
+    if (pwError) {
+      return NextResponse.json({ error: pwError }, { status: 400 });
     }
     const user = await prisma.appUser.update({
       where: { id },
-      data: { passwordHash: hashPassword(newPassword) },
+      data: { passwordHash: hashPassword(newPassword as string) },
       select: { id: true, name: true },
     });
     return NextResponse.json({ ok: true, message: `Password ${user.name} berhasil direset.` });

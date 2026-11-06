@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { hashPassword } from '@/lib/password';
+import { hashPassword, validatePasswordPolicy } from '@/lib/password';
 import { getSession } from '@/lib/session';
 
 function requireAdminOrOwner(session: Awaited<ReturnType<typeof getSession>>) {
@@ -54,8 +54,9 @@ export async function POST(request: NextRequest) {
   if (!email || !username || !password || !name || !role) {
     return NextResponse.json({ error: 'Semua field wajib diisi.' }, { status: 400 });
   }
-  if (password.length < 8) {
-    return NextResponse.json({ error: 'Password minimal 8 karakter.' }, { status: 400 });
+  const pwError = validatePasswordPolicy(password);
+  if (pwError) {
+    return NextResponse.json({ error: pwError }, { status: 400 });
   }
 
   const existing = await prisma.appUser.findFirst({
